@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="32" height="32" fill="#1a1a1a"/>
+  
+  <!-- Grid lines -->
+  <path d="M8 0v32M16 0v32M24 0v32M0 8h32M0 16h32M0 24h32" stroke="#333333" stroke-width="1"/>
+  
+  <!-- Sample pixels -->
+  <rect x="4" y="4" width="4" height="4" fill="#ff6b6b"/>
+  <rect x="12" y="12" width="4" height="4" fill="#4ecdc4"/>
+  <rect x="20" y="20" width="4" height="4" fill="#ffe66d"/>
+  <rect x="24" y="8" width="4" height="4" fill="#95e1d3"/>
+</svg> 

@@ -1,0 +1,48 @@
+services:
+  module-builder:
+    build:
+      context: ./pixel-place-module
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/home/spacetime/.local/share/spacetime/data
+      - ./identity:/identity
+    environment:
+      - RUST_LOG=info
+      - SPACETIME_DB_NAME=pixel-place
+      - SPACETIME_HOST=spacetimedb
+    profiles:
+      - build
+    depends_on:
+      - spacetimedb
+
+  spacetimedb:
+    image: clockworklabs/spacetime:latest
+    container_name: pixel-place-db
+    command: start
+    ports:
+      - "${SPACETIME_PORT:-3000}:3000"
+    environment:
+      - RUST_LOG=info
+      - SPACETIME_DB_NAME=pixel-place
+      - SPACETIME_CORS_ORIGINS=http://localhost:${FRONTEND_PORT:-80}
+    volumes:
+      - ./data:/home/spacetime/.local/share/spacetime/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./pixel-place-frontend
+      dockerfile: Dockerfile
+    container_name: pixel-place-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - spacetimedb
+    restart: unless-stopped
+    environment:
+      - VITE_SPACETIME_PORT=${SPACETIME_PORT:-3000} 
