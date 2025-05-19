@@ -75,7 +75,7 @@ function App() {
 
           // Set up pixel event handlers
           conn.db.pixel.onInsert((_ctx: EventContext, pixel: Pixel) => {
-            console.log('Pixel inserted:', pixel);
+            // console.log('Pixel inserted:', pixel);
             setPixels(prev => {
               const idx = prev.findIndex(p => p.id === pixel.id);
               if (idx !== -1) {

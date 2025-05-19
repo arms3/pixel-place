@@ -101,7 +101,7 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
     const y = Math.floor((mouseY / rect.height) * height);
 
     if (x >= 0 && x < width && y >= 0 && y < height) {
-      console.log('Clicking pixel at:', { x, y });
+      // console.log('Clicking pixel at:', { x, y });
       onPixelClick(x, y);
     }
   };
