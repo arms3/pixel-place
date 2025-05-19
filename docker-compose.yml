@@ -33,7 +33,6 @@ services:
     ports:
       - "${FRONTEND_PORT:-8932}:${FRONTEND_PORT:-8932}"
     environment:
-      - VITE_SPACETIME_PORT=${SPACETIME_PORT:-3000}
       - FRONTEND_PORT=${FRONTEND_PORT:-8932}
     depends_on:
       - spacetimedb
