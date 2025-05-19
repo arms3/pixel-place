@@ -85,8 +85,10 @@ function App() {
 
     // Use the proxy path for WebSocket connection
     const wsUrl = import.meta.env.PROD 
-      ? `ws://${window.location.hostname}/spacetime/ws`
-      : `ws://${window.location.hostname}:${import.meta.env.VITE_SPACETIME_PORT || '3000'}`;
+      ? `ws://localhost:8932/spacetime/ws`
+      : `ws://spacetimedb:${import.meta.env.VITE_SPACETIME_PORT || '3000'}`;
+    
+    console.log('Connecting to SpacetimeDB at:', wsUrl);
 
     setConn(
       DbConnection.builder()

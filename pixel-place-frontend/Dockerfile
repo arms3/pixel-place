@@ -22,10 +22,10 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
-# Expose port 80
-EXPOSE 80
+# Expose the port (will be overridden by environment variable)
+EXPOSE ${FRONTEND_PORT:-8932}
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"] 
