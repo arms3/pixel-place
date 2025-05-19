@@ -1,14 +1,9 @@
 import { useEffect, useState } from 'react';
 import './App.css';
 import PixelCanvas from './components/PixelCanvas';
-import { HexColorPicker } from 'react-colorful';
 import { DbConnection, type EventContext, Pixel, ErrorContext } from './spacetime';
 
 const DEFAULT_COLOR = '#1a1a1a';
-
-const getRandomColor = () => {
-  return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-};
 
 const fetchIdentityToken = async () => {
   try {
@@ -33,7 +28,6 @@ const fetchIdentityToken = async () => {
 
 function App() {
   const [pixels, setPixels] = useState<Pixel[]>([]);
-  const [selectedColor, setSelectedColor] = useState(getRandomColor());
   const [connected, setConnected] = useState<boolean>(false);
   const [conn, setConn] = useState<DbConnection | null>(null);
 
@@ -75,7 +69,6 @@ function App() {
 
           // Set up pixel event handlers
           conn.db.pixel.onInsert((_ctx: EventContext, pixel: Pixel) => {
-            // console.log('Pixel inserted:', pixel);
             setPixels(prev => {
               const idx = prev.findIndex(p => p.id === pixel.id);
               if (idx !== -1) {
@@ -148,14 +141,14 @@ function App() {
     };
   }, []);
 
-  const handlePixelClick = (x: number, y: number) => {
+  const handlePixelClick = (x: number, y: number, color: string) => {
     if (!connected || !conn) {
       console.warn('Not connected to server');
       return;
     }
-    console.log('Setting pixel:', { x, y, color: selectedColor });
+    console.log('Setting pixel:', { x, y, color });
     try {
-      conn.reducers.setPixel(x, y, selectedColor);
+      conn.reducers.setPixel(x, y, color);
     } catch (error) {
       console.error('Error setting pixel:', error);
     }
@@ -163,14 +156,11 @@ function App() {
 
   return (
     <div className="App">
-      <div className="controls">
-        <HexColorPicker color={selectedColor} onChange={setSelectedColor} />
-        {!connected && (
-          <div className="connection-status">
-            Connecting to server...
-          </div>
-        )}
-      </div>
+      {!connected && (
+        <div className="connection-status">
+          Connecting to server...
+        </div>
+      )}
       <PixelCanvas
         width={2000}
         height={2000}

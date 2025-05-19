@@ -1,12 +1,17 @@
 import { useRef, useState, useEffect } from 'react';
+import { HexColorPicker } from 'react-colorful';
 
 interface PixelCanvasProps {
   width: number;
   height: number;
   pixels: { x: number; y: number; color: string }[];
   defaultColor: string;
-  onPixelClick: (x: number, y: number) => void;
+  onPixelClick: (x: number, y: number, color: string) => void;
 }
+
+const getRandomColor = () => {
+  return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+};
 
 const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: PixelCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -15,6 +20,9 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [isDebugPanelVisible, setIsDebugPanelVisible] = useState(false);
+  const [isColorPickerVisible, setIsColorPickerVisible] = useState(true);
+  const [selectedColor, setSelectedColor] = useState(getRandomColor());
   const [debugInfo, setDebugInfo] = useState({
     mouseX: 0,
     mouseY: 0,
@@ -101,8 +109,7 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
     const y = Math.floor((mouseY / rect.height) * height);
 
     if (x >= 0 && x < width && y >= 0 && y < height) {
-      // console.log('Clicking pixel at:', { x, y });
-      onPixelClick(x, y);
+      onPixelClick(x, y, selectedColor);
     }
   };
 
@@ -256,24 +263,82 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
       <div style={{
         position: 'fixed',
         top: 10,
-        left: 10,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        color: '#fff',
-        padding: '10px',
-        borderRadius: '5px',
-        fontFamily: 'monospace',
-        fontSize: '12px',
+        right: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
         zIndex: 2
       }}>
-        <div>Mouse: ({debugInfo.mouseX}, {debugInfo.mouseY})</div>
-        <div>Pixel: ({debugInfo.pixelX}, {debugInfo.pixelY})</div>
-        <div>Scale: {debugInfo.scale}</div>
-        <div>Offset: ({debugInfo.offsetX}, {debugInfo.offsetY})</div>
-        <div>Canvas Size: {Math.round(debugInfo.canvasWidth)}x{Math.round(debugInfo.canvasHeight)}</div>
-        <div>Grid Size: {width}x{height}</div>
-        <div>Space: {isSpacePressed ? 'Pressed' : 'Released'}</div>
-        <div>Dragging: {isDragging ? 'Yes' : 'No'}</div>
-        <div>Pixels: {pixels.length}</div>
+        <div style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          borderRadius: '5px',
+          overflow: 'hidden',
+          width: '220px'
+        }}>
+          <div
+            onClick={() => setIsColorPickerVisible(!isColorPickerVisible)}
+            style={{
+              padding: '6px 10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: '#fff',
+              userSelect: 'none'
+            }}
+          >
+            <span style={{ fontSize: '10px' }}>{isColorPickerVisible ? '▼' : '▶'}</span>
+            <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Color Picker</span>
+          </div>
+          {isColorPickerVisible && (
+            <div style={{
+              padding: '10px'
+            }}>
+              <HexColorPicker color={selectedColor} onChange={setSelectedColor} />
+            </div>
+          )}
+        </div>
+
+        <div style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          borderRadius: '5px',
+          overflow: 'hidden',
+          width: '220px'
+        }}>
+          <div
+            onClick={() => setIsDebugPanelVisible(!isDebugPanelVisible)}
+            style={{
+              padding: '6px 10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: '#fff',
+              userSelect: 'none'
+            }}
+          >
+            <span style={{ fontSize: '10px' }}>{isDebugPanelVisible ? '▼' : '▶'}</span>
+            <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Debug Info</span>
+          </div>
+          {isDebugPanelVisible && (
+            <div style={{
+              padding: '10px',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              color: '#fff'
+            }}>
+              <div>Mouse: ({debugInfo.mouseX}, {debugInfo.mouseY})</div>
+              <div>Pixel: ({debugInfo.pixelX}, {debugInfo.pixelY})</div>
+              <div>Scale: {debugInfo.scale}</div>
+              <div>Offset: ({debugInfo.offsetX}, {debugInfo.offsetY})</div>
+              <div>Canvas Size: {Math.round(debugInfo.canvasWidth)}x{Math.round(debugInfo.canvasHeight)}</div>
+              <div>Grid Size: {width}x{height}</div>
+              <div>Space: {isSpacePressed ? 'Pressed' : 'Released'}</div>
+              <div>Dragging: {isDragging ? 'Yes' : 'No'}</div>
+              <div>Pixels: {pixels.length}</div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
