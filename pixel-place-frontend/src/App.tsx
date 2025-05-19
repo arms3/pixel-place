@@ -6,9 +6,13 @@ import { DbConnection, type EventContext, Pixel, ErrorContext } from './spacetim
 
 const DEFAULT_COLOR = '#1a1a1a';
 
+const getRandomColor = () => {
+  return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+};
+
 function App() {
   const [pixels, setPixels] = useState<Pixel[]>([]);
-  const [selectedColor, setSelectedColor] = useState('#ffffff');
+  const [selectedColor, setSelectedColor] = useState(getRandomColor());
   const [connected, setConnected] = useState<boolean>(false);
   const [conn, setConn] = useState<DbConnection | null>(null);
 
@@ -84,7 +88,7 @@ function App() {
     };
 
     // Use the proxy path for WebSocket connection
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/st/`;
+    const wsUrl = `${window.location.protocol === 'https:' ? 'https:' : 'http:'}//${window.location.host}/st/`;
     
     console.log('Connecting to SpacetimeDB at:', wsUrl);
 
