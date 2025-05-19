@@ -84,7 +84,7 @@ function App() {
     };
 
     // Use the proxy path for WebSocket connection
-    const wsUrl = `ws://localhost:${import.meta.env.FRONTEND_PORT || '8932'}/st/`;
+    const wsUrl = `ws://${window.location.host}/st/`;
     
     console.log('Connecting to SpacetimeDB at:', wsUrl);
 
