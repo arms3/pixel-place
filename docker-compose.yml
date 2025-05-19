@@ -21,10 +21,6 @@ services:
     command: start
     ports:
       - "${SPACETIME_PORT:-3000}:3000"
-    environment:
-      - RUST_LOG=info
-      - SPACETIME_DB_NAME=pixel-place
-      - SPACETIME_CORS_ORIGINS=http://localhost:${FRONTEND_PORT:-80}
     volumes:
       - ./data:/home/spacetime/.local/share/spacetime/data
     restart: unless-stopped
@@ -35,6 +31,7 @@ services:
     container_name: pixel-place-frontend
     ports:
       - "${FRONTEND_PORT:-80}:80"
+
     depends_on:
       - spacetimedb
     restart: unless-stopped
