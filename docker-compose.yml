@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   module-builder:
     build:
@@ -27,6 +29,7 @@ services:
       - SPACETIME_CORS_ORIGINS=http://localhost:${FRONTEND_PORT:-80}
     volumes:
       - ./data:/home/spacetime/.local/share/spacetime/data
+    user: "1000:1000"  # Use the host user's UID:GID
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
