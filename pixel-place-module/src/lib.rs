@@ -1,9 +1,10 @@
-use spacetimedb::{table, reducer, Table, ReducerContext, Timestamp, TimeDuration, ScheduleAt, log};
+use spacetimedb::{table, reducer, Table, ReducerContext, Timestamp, TimeDuration, ScheduleAt, log, SpacetimeType};
 
 const PIXEL_LIFETIME_MS: i64 = 30 * 24 * 60 * 60 * 1000; // 30 days
 const CLEANUP_INTERVAL_MS: i64 = 1 * 1000; // 1 second
 
 #[table(name = pixel, public)]
+#[derive(Clone)]
 pub struct Pixel {
     #[primary_key]
     id: String, // format: "{x}_{y}"
@@ -21,6 +22,13 @@ pub struct CleanupSchedule {
     scheduled_id: u64,
     /// Information about when the reducer should be called.
     scheduled_at: ScheduleAt,
+}
+
+#[derive(SpacetimeType, Clone)]
+pub struct PixelUpdate {
+    x: i32,
+    y: i32,
+    color: String,
 }
 
 #[reducer(init)]
@@ -89,4 +97,42 @@ pub fn set_pixel(ctx: &ReducerContext, x: i32, y: i32, color: String) {
         color,
         timestamp: ctx.timestamp,
     });
+}
+
+#[reducer]
+pub fn set_pixels(ctx: &ReducerContext, pixels: Vec<PixelUpdate>) -> Result<(), String> {
+    // Create a map of existing pixels for efficient lookup
+    let existing_pixels: std::collections::HashMap<String, Pixel> = ctx.db.pixel()
+        .iter()
+        .map(|p| (p.id.clone(), p))
+        .collect();
+
+    // Process all pixels in a single transaction
+    for pixel in pixels {
+        let id = format!("{}_{}", pixel.x, pixel.y);
+        
+        // Only delete if the pixel exists and has a different color
+        if let Some(existing) = existing_pixels.get(&id) {
+            if existing.color != pixel.color {
+                ctx.db.pixel().delete(existing.clone());
+                ctx.db.pixel().insert(Pixel {
+                    id,
+                    x: pixel.x,
+                    y: pixel.y,
+                    color: pixel.color,
+                    timestamp: ctx.timestamp,
+                });
+            }
+        } else {
+            // Insert new pixel
+            ctx.db.pixel().insert(Pixel {
+                id,
+                x: pixel.x,
+                y: pixel.y,
+                color: pixel.color,
+                timestamp: ctx.timestamp,
+            });
+        }
+    }
+    Ok(())
 }

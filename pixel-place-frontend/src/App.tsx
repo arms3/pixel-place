@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import './App.css';
 import PixelCanvas from './components/PixelCanvas';
-import { DbConnection, type EventContext, Pixel, ErrorContext } from './spacetime';
+import { DbConnection, type EventContext, Pixel, ErrorContext, PixelUpdate } from './spacetime';
 
 const DEFAULT_COLOR = '#1a1a1a';
 
@@ -141,16 +141,18 @@ function App() {
     };
   }, []);
 
-  const handlePixelClick = (x: number, y: number, color: string) => {
+  const handlePixelsUpdate = (pixels: { x: number; y: number; color: string }[]) => {
     if (!connected || !conn) {
       console.warn('Not connected to server');
       return;
     }
-    console.log('Setting pixel:', { x, y, color });
+    console.log('Setting multiple pixels:', pixels.length);
     try {
-      conn.reducers.setPixel(x, y, color);
+      // Convert the pixels array to the format expected by the reducer
+      const pixelUpdates: PixelUpdate[] = pixels.map(p => ({ x: p.x, y: p.y, color: p.color }));
+      conn.reducers.setPixels(pixelUpdates);
     } catch (error) {
-      console.error('Error setting pixel:', error);
+      console.error('Error setting pixels:', error);
     }
   };
 
@@ -166,7 +168,7 @@ function App() {
         height={2000}
         pixels={pixels}
         defaultColor={DEFAULT_COLOR}
-        onPixelClick={handlePixelClick}
+        onPixelsUpdate={handlePixelsUpdate}
       />
     </div>
   );

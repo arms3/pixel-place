@@ -32,19 +32,34 @@ import {
 } from "@clockworklabs/spacetimedb-sdk";
 
 // Import and reexport all reducer arg types
+import { CleanupOldPixels } from "./cleanup_old_pixels_reducer.ts";
+export { CleanupOldPixels };
 import { SetPixel } from "./set_pixel_reducer.ts";
 export { SetPixel };
+import { SetPixels } from "./set_pixels_reducer.ts";
+export { SetPixels };
 
 // Import and reexport all table handle types
+import { CleanupScheduleTableHandle } from "./cleanup_schedule_table.ts";
+export { CleanupScheduleTableHandle };
 import { PixelTableHandle } from "./pixel_table.ts";
 export { PixelTableHandle };
 
 // Import and reexport all types
+import { CleanupSchedule } from "./cleanup_schedule_type.ts";
+export { CleanupSchedule };
 import { Pixel } from "./pixel_type.ts";
 export { Pixel };
+import { PixelUpdate } from "./pixel_update_type.ts";
+export { PixelUpdate };
 
 const REMOTE_MODULE = {
   tables: {
+    cleanup_schedule: {
+      tableName: "cleanup_schedule",
+      rowType: CleanupSchedule.getTypeScriptAlgebraicType(),
+      primaryKey: "scheduledId",
+    },
     pixel: {
       tableName: "pixel",
       rowType: Pixel.getTypeScriptAlgebraicType(),
@@ -52,9 +67,17 @@ const REMOTE_MODULE = {
     },
   },
   reducers: {
+    cleanup_old_pixels: {
+      reducerName: "cleanup_old_pixels",
+      argsType: CleanupOldPixels.getTypeScriptAlgebraicType(),
+    },
     set_pixel: {
       reducerName: "set_pixel",
       argsType: SetPixel.getTypeScriptAlgebraicType(),
+    },
+    set_pixels: {
+      reducerName: "set_pixels",
+      argsType: SetPixels.getTypeScriptAlgebraicType(),
     },
   },
   // Constructors which are used by the DbConnectionImpl to
@@ -83,11 +106,29 @@ const REMOTE_MODULE = {
 
 // A type representing all the possible variants of a reducer.
 export type Reducer = never
+| { name: "CleanupOldPixels", args: CleanupOldPixels }
 | { name: "SetPixel", args: SetPixel }
+| { name: "SetPixels", args: SetPixels }
 ;
 
 export class RemoteReducers {
   constructor(private connection: DbConnectionImpl, private setCallReducerFlags: SetReducerFlags) {}
+
+  cleanupOldPixels(arg: CleanupSchedule) {
+    const __args = { arg };
+    let __writer = new BinaryWriter(1024);
+    CleanupOldPixels.getTypeScriptAlgebraicType().serialize(__writer, __args);
+    let __argsBuffer = __writer.getBuffer();
+    this.connection.callReducer("cleanup_old_pixels", __argsBuffer, this.setCallReducerFlags.cleanupOldPixelsFlags);
+  }
+
+  onCleanupOldPixels(callback: (ctx: ReducerEventContext, arg: CleanupSchedule) => void) {
+    this.connection.onReducer("cleanup_old_pixels", callback);
+  }
+
+  removeOnCleanupOldPixels(callback: (ctx: ReducerEventContext, arg: CleanupSchedule) => void) {
+    this.connection.offReducer("cleanup_old_pixels", callback);
+  }
 
   setPixel(x: number, y: number, color: string) {
     const __args = { x, y, color };
@@ -105,18 +146,48 @@ export class RemoteReducers {
     this.connection.offReducer("set_pixel", callback);
   }
 
+  setPixels(pixels: PixelUpdate[]) {
+    const __args = { pixels };
+    let __writer = new BinaryWriter(1024);
+    SetPixels.getTypeScriptAlgebraicType().serialize(__writer, __args);
+    let __argsBuffer = __writer.getBuffer();
+    this.connection.callReducer("set_pixels", __argsBuffer, this.setCallReducerFlags.setPixelsFlags);
+  }
+
+  onSetPixels(callback: (ctx: ReducerEventContext, pixels: PixelUpdate[]) => void) {
+    this.connection.onReducer("set_pixels", callback);
+  }
+
+  removeOnSetPixels(callback: (ctx: ReducerEventContext, pixels: PixelUpdate[]) => void) {
+    this.connection.offReducer("set_pixels", callback);
+  }
+
 }
 
 export class SetReducerFlags {
+  cleanupOldPixelsFlags: CallReducerFlags = 'FullUpdate';
+  cleanupOldPixels(flags: CallReducerFlags) {
+    this.cleanupOldPixelsFlags = flags;
+  }
+
   setPixelFlags: CallReducerFlags = 'FullUpdate';
   setPixel(flags: CallReducerFlags) {
     this.setPixelFlags = flags;
+  }
+
+  setPixelsFlags: CallReducerFlags = 'FullUpdate';
+  setPixels(flags: CallReducerFlags) {
+    this.setPixelsFlags = flags;
   }
 
 }
 
 export class RemoteTables {
   constructor(private connection: DbConnectionImpl) {}
+
+  get cleanupSchedule(): CleanupScheduleTableHandle {
+    return new CleanupScheduleTableHandle(this.connection.clientCache.getOrCreateTable<CleanupSchedule>(REMOTE_MODULE.tables.cleanup_schedule));
+  }
 
   get pixel(): PixelTableHandle {
     return new PixelTableHandle(this.connection.clientCache.getOrCreateTable<Pixel>(REMOTE_MODULE.tables.pixel));

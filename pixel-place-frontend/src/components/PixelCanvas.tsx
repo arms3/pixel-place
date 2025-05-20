@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { HexColorPicker } from 'react-colorful';
 
 interface PixelCanvasProps {
@@ -6,14 +6,14 @@ interface PixelCanvasProps {
   height: number;
   pixels: { x: number; y: number; color: string }[];
   defaultColor: string;
-  onPixelClick: (x: number, y: number, color: string) => void;
+  onPixelsUpdate?: (pixels: { x: number; y: number; color: string }[]) => void;
 }
 
 const getRandomColor = () => {
   return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
 };
 
-const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: PixelCanvasProps) => {
+const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelsUpdate }: PixelCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scale, setScale] = useState(40); // Start with a closer zoom
   const [isDragging, setIsDragging] = useState(false);
@@ -23,6 +23,9 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
   const [isDebugPanelVisible, setIsDebugPanelVisible] = useState(false);
   const [isColorPickerVisible, setIsColorPickerVisible] = useState(true);
   const [selectedColor, setSelectedColor] = useState(getRandomColor());
+  const [brushSize, setBrushSize] = useState(1);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [lastDrawnPixel, setLastDrawnPixel] = useState<{ x: number; y: number } | null>(null);
   const [debugInfo, setDebugInfo] = useState({
     mouseX: 0,
     mouseY: 0,
@@ -34,6 +37,8 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
     canvasWidth: 0,
     canvasHeight: 0
   });
+  const [pendingPixels, setPendingPixels] = useState<{ x: number; y: number; color: string }[]>([]);
+  const updateTimeoutRef = useRef<number | null>(null);
 
   // Track space key state
   useEffect(() => {
@@ -91,6 +96,55 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
     });
   }, [pixels, width, height]);
 
+  // Function to get affected pixels based on brush size
+  const getAffectedPixels = useCallback((x: number, y: number, color: string) => {
+    const affectedPixels: { x: number; y: number; color: string }[] = [];
+    for (let i = -Math.floor(brushSize / 2); i <= Math.floor(brushSize / 2); i++) {
+      for (let j = -Math.floor(brushSize / 2); j <= Math.floor(brushSize / 2); j++) {
+        const newX = x + i;
+        const newY = y + j;
+        if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
+          affectedPixels.push({ x: newX, y: newY, color });
+        }
+      }
+    }
+    return affectedPixels;
+  }, [brushSize, width, height]);
+
+  // Function to batch update pixels
+  const batchUpdatePixels = useCallback((newPixels: { x: number; y: number; color: string }[]) => {
+    setPendingPixels(prev => {
+      const updated = [...prev, ...newPixels];
+      // Remove duplicates by keeping the latest update for each position
+      const uniquePixels = Array.from(
+        new Map(updated.map(p => [`${p.x},${p.y}`, p])).values()
+      );
+      return uniquePixels;
+    });
+
+    // Clear any existing timeout
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    // Set a new timeout to send updates
+    updateTimeoutRef.current = setTimeout(() => {
+      if (onPixelsUpdate && pendingPixels.length > 0) {
+        onPixelsUpdate(pendingPixels);
+        setPendingPixels([]);
+      }
+    }, 50); // Batch updates every 50ms
+  }, [onPixelsUpdate]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Handle canvas click
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (isSpacePressed || isDragging) return;
@@ -109,11 +163,17 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
     const y = Math.floor((mouseY / rect.height) * height);
 
     if (x >= 0 && x < width && y >= 0 && y < height) {
-      onPixelClick(x, y, selectedColor);
+      const affectedPixels = getAffectedPixels(x, y, selectedColor);
+      batchUpdatePixels(affectedPixels);
+      setLastDrawnPixel({ x, y });
+      // Call onPixelsUpdate to send the update to the parent
+      if (onPixelsUpdate) {
+        onPixelsUpdate(affectedPixels);
+      }
     }
   };
 
-  // Handle mouse move for hover effect and debug info
+  // Handle mouse move for drawing and hover effect
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (isDragging) {
       setOffset({
@@ -149,6 +209,57 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
       canvasHeight: rect.height
     });
 
+    // Handle continuous drawing
+    if (isDrawing && !isSpacePressed && lastDrawnPixel) {
+      // Calculate distance between current and last pixel
+      const dx = pixelX - lastDrawnPixel.x;
+      const dy = pixelY - lastDrawnPixel.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // If distance is greater than 1, interpolate points
+      if (distance > 1) {
+        const steps = Math.ceil(distance);
+        const pixelsToUpdate: { x: number; y: number; color: string }[] = [];
+
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const x = Math.round(lastDrawnPixel.x + dx * t);
+          const y = Math.round(lastDrawnPixel.y + dy * t);
+          
+          // Only add pixels that are within bounds
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            pixelsToUpdate.push({ x, y, color: selectedColor });
+          }
+        }
+
+        // Batch update all interpolated pixels
+        if (pixelsToUpdate.length > 0) {
+          // Get all affected pixels for each interpolated point
+          const allAffectedPixels = pixelsToUpdate.flatMap(pixel => 
+            getAffectedPixels(pixel.x, pixel.y, pixel.color)
+          );
+          
+          // Deduplicate affected pixels, keeping the latest update for each position
+          const uniqueAffectedPixels = Array.from(
+            new Map(allAffectedPixels.map(p => [`${p.x},${p.y}`, p])).values()
+          );
+
+          batchUpdatePixels(uniqueAffectedPixels);
+          if (onPixelsUpdate) {
+            onPixelsUpdate(uniqueAffectedPixels);
+          }
+        }
+      } else if (distance > 0) {
+        // If distance is 1 or less, just draw the current pixel
+        const affectedPixels = getAffectedPixels(pixelX, pixelY, selectedColor);
+        batchUpdatePixels(affectedPixels);
+        if (onPixelsUpdate) {
+          onPixelsUpdate(affectedPixels);
+        }
+      }
+
+      setLastDrawnPixel({ x: pixelX, y: pixelY });
+    }
   };
 
   // Handle mouse wheel for zooming
@@ -187,23 +298,26 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
     }));
   };
 
-  // Handle mouse down for dragging
+  // Handle mouse down for dragging and drawing
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (isSpacePressed) {
       setIsDragging(true);
       document.body.style.cursor = 'grabbing';
       setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     } else {
+      setIsDrawing(true);
       handleCanvasClick(e);
     }
   };
 
-  // Handle mouse up to stop dragging
+  // Handle mouse up to stop dragging and drawing
   const handleMouseUp = () => {
     if (isDragging) {
       setIsDragging(false);
       document.body.style.cursor = isSpacePressed ? 'grab' : 'default';
     }
+    setIsDrawing(false);
+    setLastDrawnPixel(null);
   };
 
   return (
@@ -295,6 +409,17 @@ const PixelCanvas = ({ width, height, pixels, defaultColor, onPixelClick }: Pixe
               padding: '10px'
             }}>
               <HexColorPicker color={selectedColor} onChange={setSelectedColor} />
+              <div style={{ marginTop: '10px', color: '#fff' }}>
+                <label style={{ fontSize: '12px', display: 'block', marginBottom: '5px' }}>Brush Size: {brushSize}</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={brushSize}
+                  onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
             </div>
           )}
         </div>
