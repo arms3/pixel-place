@@ -28,7 +28,7 @@ cd pixel-place
 
 2. Start the SpacetimeDB server:
 ```bash
-docker run -v $(pwd)/data:/home/spacetime/.local/share/spacetime/data --rm --pull always -p 3000:3000 -e RUST_LOG=info clockworklabs/spacetime start
+docker compose up -d frontend
 ```
 
 3. In a new terminal, publish the module:
@@ -119,20 +119,14 @@ mkdir data
 ```
 
 2. Start the SpacetimeDB server:
+This is just to make sure the databse is up and running by the time we run the next command. Thew module-builder service will auto start the database if not running.
 ```bash
-docker run -v $(pwd)/data:/home/spacetime/.local/share/spacetime/data -d --restart unless-stopped -p 3000:3000 -e RUST_LOG=info -e SPACETIME_DB_NAME=pixel-place clockworklabs/spacetime start
+docker compose run spacetimedb
 ```
 
 3. Build and publish the module:
 ```bash
-docker run --rm -v $(pwd)/pixel-place-module:/app -v $(pwd)/data:/home/spacetime/.local/share/spacetime/data -w /app rust:1.75-slim bash -c "
-  apt-get update && 
-  apt-get install -y curl build-essential && 
-  curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/wasm-opt-linux -o /usr/local/bin/wasm-opt && 
-  chmod +x /usr/local/bin/wasm-opt && 
-  curl -L https://github.com/clockworklabs/spacetime/releases/latest/download/spacetime-linux-x86_64 -o /usr/local/bin/spacetime && 
-  chmod +x /usr/local/bin/spacetime && 
-  spacetime publish --project-path . pixel-place
+docker compose run --rm module-builder
 "
 ```
 
@@ -205,6 +199,36 @@ docker compose ps
    - Ensure the SpacetimeDB server is running before the module build starts
    - Verify the module name matches in both the build script and docker-compose.yml
 
+## Troubleshooting: Logging in with Existing Credentials
+
+If you need to log in to the local SpacetimeDB using the same credentials as an existing database, follow these steps:
+
+1. **Read the Token from the .env File:**
+
+   In PowerShell, use the following command to read the token from the `.env` file located in the `identity` folder at the project root:
+
+   ```powershell
+   $token = (Get-Content -Path "identity\.env" -Raw) -replace '^LOGIN_TOKEN=', ''
+   ```
+
+2. **Log in to SpacetimeDB:**
+
+   Use the token to log in via the local Spacetime CLI:
+
+   ```powershell
+   spacetime login --token $token
+   ```
+
+   This will authenticate you with the same credentials as the existing database.
+
 ## License
 
-[Your License Here] 
+[Your License Here]
+
+## Generating TypeScript Bindings
+
+To regenerate the TypeScript bindings for the frontend, run the following command from the `pixel-place-module` directory:
+
+```bash
+spacetime generate --lang typescript --out-dir ../pixel-place-frontend/src/spacetime --project-path .
+``` 
